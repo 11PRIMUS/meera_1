@@ -6,8 +6,25 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage
 import streamlit as st
 from dotenv import load_dotenv
+import torch
+import numpy
+from bark import SAMPLE_RATE,generate_audio,preload_models
 
 load_dotenv()
+
+try:
+    if hasattr(torch, 'serialization') and hasattr(numpy, '_core') and hasattr(numpy._core.multiarray, 'scalar'):
+        torch.serialization.add_safe_globals([numpy._core.multiarray.scalar])
+    elif hasattr(torch, 'serialization') and hasattr(numpy, 'core') and hasattr(numpy.core.multiarray, 'scalar'):
+        torch.serialization.add_safe_globals([numpy.core.multiarray.scalar])
+        st.sidebar.info("Used legacy numpy.core path for PyTorch safe_globals.")
+    else:
+        st.sidebar.warning("pytorch_safe_global failed")
+    
+    preload_models()
+    st.sidebar.info("Bark model preloaded.")
+except Exception as e:
+    st.sidebar.warning(f"failed to load bark: {e}")
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 langchain_api_key_from_env = os.getenv("LANGCHAIN_API_KEY")
@@ -82,6 +99,13 @@ if new_user_input := st.chat_input("tell Meera about your day or mood..."):
             st.session_state.messages_display.append({"role":"assistant","content":response})
             with st.chat_message("assistant"):
                 st.markdown(response)
+
+                try:
+                    with st.spinner("meera is speaking..."):
+                        audio_array=generate_audio(response)
+                    st.audio(audio_array,sample_rate=SAMPLE_RATE)
+                except Exception as audio_e:
+                    st.warning(f"failed to generate audio for meera response:{audio_e}")
 
             #save interaction
             st.session_state.chat_history_store.add_user_message(new_user_input)
