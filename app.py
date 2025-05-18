@@ -20,11 +20,34 @@ try:
         st.sidebar.info("Used legacy numpy.core path for PyTorch safe_globals.")
     else:
         st.sidebar.warning("pytorch_safe_global failed")
+
     
-    preload_models()
-    st.sidebar.info("Bark model preloaded.")
+    
+    preload_kwargs={}
+    if torch.cuda.is_available():
+        st.sidebar.info("Bark model loading...")
+        preload_kwargs={
+            "text_use_gpu":True,
+            "coarse_use_gpu":True,
+            "codec_use_gpu":True,
+            "fine_use_gpu":True,
+        }
+
+    else:
+        st.sidebar.warning("gpu poor(invest in some gpu dude)")
+        preload_kwargs={
+            "text_use_gpu":False,
+            "coarse_use_gpu":False,
+            "codec_use_gpu":False,
+            "fine_use_gpu":False,
+        }
+    preload_models(**preload_kwargs)
+    st.sidebar.info("bark preloaded")
+    st.session_state.bark_ready=True
+
 except Exception as e:
     st.sidebar.warning(f"failed to load bark: {e}")
+    st.session_state.bark_ready=False
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 langchain_api_key_from_env = os.getenv("LANGCHAIN_API_KEY")
@@ -100,12 +123,17 @@ if new_user_input := st.chat_input("tell Meera about your day or mood..."):
             with st.chat_message("assistant"):
                 st.markdown(response)
 
-                try:
-                    with st.spinner("meera is speaking..."):
-                        audio_array=generate_audio(response)
-                    st.audio(audio_array,sample_rate=SAMPLE_RATE)
-                except Exception as audio_e:
-                    st.warning(f"failed to generate audio for meera response:{audio_e}")
+                if st.session_state.get("bark_ready",False):
+                    try:
+                        with st.spinner("meera is speaking..."):
+                            audio_array=generate_audio(response)
+                        st.audio(audio_array,sample_rate=SAMPLE_RATE)
+                    except NameError as ne:
+                        st.warning(f"bark tts not available: {ne}")
+                    except Exception as audio_e:
+                        st.warning(f"failed to generate audio for meera response:{audio_e}")
+                else:
+                    st.sidebar.warning("bark tts not available")
 
             #save interaction
             st.session_state.chat_history_store.add_user_message(new_user_input)
