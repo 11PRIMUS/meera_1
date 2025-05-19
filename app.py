@@ -13,16 +13,23 @@ from bark import SAMPLE_RATE,generate_audio,preload_models
 load_dotenv()
 
 try:
-    if hasattr(torch, 'serialization') and hasattr(numpy, '_core') and hasattr(numpy._core.multiarray, 'scalar'):
-        torch.serialization.add_safe_globals([numpy._core.multiarray.scalar])
-    elif hasattr(torch, 'serialization') and hasattr(numpy, 'core') and hasattr(numpy.core.multiarray, 'scalar'):
-        torch.serialization.add_safe_globals([numpy.core.multiarray.scalar])
-        st.sidebar.info("Used legacy numpy.core path for PyTorch safe_globals.")
-    else:
-        st.sidebar.warning("pytorch_safe_global failed")
+    if hasattr(torch, 'serialization'):
+        types_to_add_to_safe_globals = []
+        
+        if hasattr(numpy, 'core') and hasattr(numpy.core.multiarray,'scalar'):
+            types_to_add_to_safe_globals.append(numpy.core.multiarray.scalar)
 
-    
-    
+        if hasattr(numpy,'_core') and hasattr(numpy._core.multiarray,'scalar'):
+            if not any(item is numpy._core.multiarray.scalar for item in types_to_add_to_safe_globals):
+                 types_to_add_to_safe_globals.append(numpy._core.multiarray.scalar)
+        
+        if types_to_add_to_safe_globals:
+            torch.serialization.add_safe_globals(types_to_add_to_safe_globals)
+        else:
+            st.sidebar.warning("numpy scalar not found")
+    else:
+        st.sidebar.warning("torch.serialization module not available")
+
     preload_kwargs={}
     if torch.cuda.is_available():
         st.sidebar.info("Bark model loading...")
@@ -67,7 +74,7 @@ prompt = ChatPromptTemplate.from_messages([
     ("system", "You are Meera, an emotional assistant. You reflect on your conversations and keep a sort of internal diary to help you remember and understand the user better over time. Respond to user queries, drawing upon your understanding from past interactions and your internal reflections."),
     MessagesPlaceholder(variable_name="chat_history"),
     ("user", "{question}")
-])
+]) 
 
 st.title('EMO with custom model')
 
@@ -99,9 +106,22 @@ else:
 
 output_parser=StrOutputParser()
 
-for msg in st.session_state.messages_display:
+#play button
+for msg_idx, msg in enumerate(st.session_state.messages_display):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        #meera play button
+        if msg["role"]=="assistant" and st.session_state.get("bark_ready",False):
+            button_label="hear Meera's Voice"
+            if st.button(button_label, key=f"play_audio_{msg_idx}"):
+                try:
+                    with st.spinner("meera is speaking..."): 
+                        audio_array=generate_audio(msg["content"])
+                    st.audio(audio_array,sample_rate=SAMPLE_RATE)
+                except NameError as ne:
+                    st.warning(f"bark not found: {ne}check bark module")
+                except Exception as audio_e:
+                    st.warning(f"failed to generate audio:{audio_e}")
 
 #new user input
 if new_user_input := st.chat_input("tell Meera about your day or mood..."):
@@ -120,24 +140,15 @@ if new_user_input := st.chat_input("tell Meera about your day or mood..."):
                 "chat_history":loaded_chat_history
             })
             st.session_state.messages_display.append({"role":"assistant","content":response})
+            
             with st.chat_message("assistant"):
                 st.markdown(response)
-
-                if st.session_state.get("bark_ready",False):
-                    try:
-                        with st.spinner("meera is speaking..."):
-                            audio_array=generate_audio(response)
-                        st.audio(audio_array,sample_rate=SAMPLE_RATE)
-                    except NameError as ne:
-                        st.warning(f"bark tts not available: {ne}")
-                    except Exception as audio_e:
-                        st.warning(f"failed to generate audio for meera response:{audio_e}")
-                else:
-                    st.sidebar.warning("bark tts not available")
 
             #save interaction
             st.session_state.chat_history_store.add_user_message(new_user_input)
             st.session_state.chat_history_store.add_ai_message(response)
+            st.rerun()
+
 
         except Exception as e:
             error_message = f"error during model chain invocation: {e}"
