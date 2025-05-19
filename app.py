@@ -26,35 +26,11 @@ try:
         if types_to_add_to_safe_globals:
             torch.serialization.add_safe_globals(types_to_add_to_safe_globals)
         else:
-            st.sidebar.warning("numpy scalar not found")
+            st.sidebar.warning("numpy scalar not found for PyTorch safe_globals.")
     else:
         st.sidebar.warning("torch.serialization module not available")
-
-    preload_kwargs={}
-    if torch.cuda.is_available():
-        st.sidebar.info("Bark model loading...")
-        preload_kwargs={
-            "text_use_gpu":True,
-            "coarse_use_gpu":True,
-            "codec_use_gpu":True,
-            "fine_use_gpu":True,
-        }
-
-    else:
-        st.sidebar.warning("gpu poor(invest in some gpu dude)")
-        preload_kwargs={
-            "text_use_gpu":False,
-            "coarse_use_gpu":False,
-            "codec_use_gpu":False,
-            "fine_use_gpu":False,
-        }
-    preload_models(**preload_kwargs)
-    st.sidebar.info("bark preloaded")
-    st.session_state.bark_ready=True
-
-except Exception as e:
-    st.sidebar.warning(f"failed to load bark: {e}")
-    st.session_state.bark_ready=False
+except Exception as e_safe_globals:
+    st.sidebar.error(f"Error during PyTorch safe_globals setup: {e_safe_globals}")
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 langchain_api_key_from_env = os.getenv("LANGCHAIN_API_KEY")
@@ -68,7 +44,9 @@ if "chat_history_store" not in st.session_state:
     st.session_state.chat_history_store = ChatMessageHistory()
 
 if "messages_display" not in st.session_state:
-    st.session_state.messages_display = []
+    st.session_state.messages_display=[]
+if "bark_ready" not in st.session_state:
+    st.session_state.bark_ready=False
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are Meera, an emotional assistant. You reflect on your conversations and keep a sort of internal diary to help you remember and understand the user better over time. Respond to user queries, drawing upon your understanding from past interactions and your internal reflections."),
@@ -76,7 +54,7 @@ prompt = ChatPromptTemplate.from_messages([
     ("user", "{question}")
 ]) 
 
-st.title('EMO with custom model')
+st.title('EMO with custom model ')
 
 llm=None 
 NEBIUS_API_KEY=os.getenv("NEBIUS_API_KEY")
@@ -106,22 +84,49 @@ else:
 
 output_parser=StrOutputParser()
 
-#play button
 for msg_idx, msg in enumerate(st.session_state.messages_display):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        #meera play button
-        if msg["role"]=="assistant" and st.session_state.get("bark_ready",False):
-            button_label="hear Meera's Voice"
+        #meeera voice
+        if msg["role"] == "assistant":
+            button_label = "hear meera voice"
             if st.button(button_label, key=f"play_audio_{msg_idx}"):
-                try:
-                    with st.spinner("meera is speaking..."): 
-                        audio_array=generate_audio(msg["content"])
-                    st.audio(audio_array,sample_rate=SAMPLE_RATE)
-                except NameError as ne:
-                    st.warning(f"bark not found: {ne}check bark module")
-                except Exception as audio_e:
-                    st.warning(f"failed to generate audio:{audio_e}")
+                #load bark 
+                if not st.session_state.get("bark_ready", False):
+                    st.sidebar.info("Initializing Meera's voice capabilities (first-time setup)...")
+                    try:
+                        preload_kwargs_button = {}
+                        if torch.cuda.is_available():
+                            st.sidebar.info("GPU detected. Bark will use GPU for TTS.")
+                            preload_kwargs_button = {
+                                "text_use_gpu": True, "coarse_use_gpu": True,
+                                "codec_use_gpu": True, "fine_use_gpu": True,
+                            }
+                        else:
+                            st.sidebar.warning("No GPU detected by PyTorch. Bark will use CPU (slower).")
+                            preload_kwargs_button = {
+                                "text_use_gpu": False, "coarse_use_gpu": False,
+                                "codec_use_gpu": False, "fine_use_gpu": False,
+                            }
+                        with st.spinner("Setting up voice models... This might take a moment."):
+                            preload_models(**preload_kwargs_button)
+                        st.session_state.bark_ready = True
+                        st.sidebar.success("meera's voice is ready!")
+                    except Exception as e_load:
+                        st.sidebar.error(f"Failed to initialize Meera's voice: {e_load}")
+                        st.session_state.bark_ready = False
+            
+                if st.session_state.get("bark_ready", False):
+                    try:
+                        with st.spinner("meera is speaking..."):
+                            audio_array=generate_audio(msg["content"])
+                        st.audio(audio_array,sample_rate=SAMPLE_RATE)
+                    except NameError as ne: 
+                        st.warning(f"Bark TTS function not available: {ne}.")
+                    except Exception as audio_e:
+                        st.warning(f"failed to generate audio {audio_e}")
+                else:
+                    st.warning("sorry meera don't want to talk ")
 
 #new user input
 if new_user_input := st.chat_input("tell Meera about your day or mood..."):
@@ -147,8 +152,7 @@ if new_user_input := st.chat_input("tell Meera about your day or mood..."):
             #save interaction
             st.session_state.chat_history_store.add_user_message(new_user_input)
             st.session_state.chat_history_store.add_ai_message(response)
-            st.rerun()
-
+            st.rerun() 
 
         except Exception as e:
             error_message = f"error during model chain invocation: {e}"
