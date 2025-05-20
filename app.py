@@ -6,31 +6,9 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage
 import streamlit as st
 from dotenv import load_dotenv
-import torch
-import numpy
-from bark import SAMPLE_RATE,generate_audio,preload_models
+
 
 load_dotenv()
-
-try:
-    if hasattr(torch, 'serialization'):
-        types_to_add_to_safe_globals = []
-        
-        if hasattr(numpy, 'core') and hasattr(numpy.core.multiarray,'scalar'):
-            types_to_add_to_safe_globals.append(numpy.core.multiarray.scalar)
-
-        if hasattr(numpy,'_core') and hasattr(numpy._core.multiarray,'scalar'):
-            if not any(item is numpy._core.multiarray.scalar for item in types_to_add_to_safe_globals):
-                 types_to_add_to_safe_globals.append(numpy._core.multiarray.scalar)
-        
-        if types_to_add_to_safe_globals:
-            torch.serialization.add_safe_globals(types_to_add_to_safe_globals)
-        else:
-            st.sidebar.warning("numpy scalar not found for PyTorch safe_globals.")
-    else:
-        st.sidebar.warning("torch.serialization module not available")
-except Exception as e_safe_globals:
-    st.sidebar.error(f"Error during PyTorch safe_globals setup: {e_safe_globals}")
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 langchain_api_key_from_env = os.getenv("LANGCHAIN_API_KEY")
@@ -45,8 +23,6 @@ if "chat_history_store" not in st.session_state:
 
 if "messages_display" not in st.session_state:
     st.session_state.messages_display=[]
-if "bark_ready" not in st.session_state:
-    st.session_state.bark_ready=False
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are Meera, an emotional assistant. You reflect on your conversations and keep a sort of internal diary to help you remember and understand the user better over time. Respond to user queries, drawing upon your understanding from past interactions and your internal reflections."),
@@ -54,7 +30,7 @@ prompt = ChatPromptTemplate.from_messages([
     ("user", "{question}")
 ]) 
 
-st.title('EMO with custom model ')
+st.title('EMO with custom model ') 
 
 llm=None 
 NEBIUS_API_KEY=os.getenv("NEBIUS_API_KEY")
@@ -87,49 +63,10 @@ output_parser=StrOutputParser()
 for msg_idx, msg in enumerate(st.session_state.messages_display):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        #meeera voice
-        if msg["role"] == "assistant":
-            button_label = "hear meera voice"
-            if st.button(button_label, key=f"play_audio_{msg_idx}"):
-                #load bark 
-                if not st.session_state.get("bark_ready", False):
-                    st.sidebar.info("Initializing Meera's voice capabilities (first-time setup)...")
-                    try:
-                        preload_kwargs_button = {}
-                        if torch.cuda.is_available():
-                            st.sidebar.info("GPU detected. Bark will use GPU for TTS.")
-                            preload_kwargs_button = {
-                                "text_use_gpu": True, "coarse_use_gpu": True,
-                                "codec_use_gpu": True, "fine_use_gpu": True,
-                            }
-                        else:
-                            st.sidebar.warning("No GPU detected by PyTorch. Bark will use CPU (slower).")
-                            preload_kwargs_button = {
-                                "text_use_gpu": False, "coarse_use_gpu": False,
-                                "codec_use_gpu": False, "fine_use_gpu": False,
-                            }
-                        with st.spinner("Setting up voice models... This might take a moment."):
-                            preload_models(**preload_kwargs_button)
-                        st.session_state.bark_ready = True
-                        st.sidebar.success("meera's voice is ready!")
-                    except Exception as e_load:
-                        st.sidebar.error(f"Failed to initialize Meera's voice: {e_load}")
-                        st.session_state.bark_ready = False
-            
-                if st.session_state.get("bark_ready", False):
-                    try:
-                        with st.spinner("meera is speaking..."):
-                            audio_array=generate_audio(msg["content"])
-                        st.audio(audio_array,sample_rate=SAMPLE_RATE)
-                    except NameError as ne: 
-                        st.warning(f"Bark TTS function not available: {ne}.")
-                    except Exception as audio_e:
-                        st.warning(f"failed to generate audio {audio_e}")
-                else:
-                    st.warning("sorry meera don't want to talk ")
+        # The "hear meera voice" button and its logic are removed.
 
 #new user input
-if new_user_input := st.chat_input("tell Meera about your day or mood..."):
+if new_user_input := st.chat_input("tell meera about your day or mood..."):
     st.session_state.messages_display.append({"role":"user","content":new_user_input})
     with st.chat_message("user"):
         st.markdown(new_user_input)
@@ -162,7 +99,7 @@ if new_user_input := st.chat_input("tell Meera about your day or mood..."):
                 st.markdown(f"Sorry, I encountered an issue: {e}")
                 
     elif not missing_configs: #model init failed
-        warning_message = "check model "
+        warning_message = "check model " # Consider a more descriptive message
         st.warning(warning_message)
         st.session_state.messages_display.append({"role":"assistant","content": warning_message})
         with st.chat_message("assistant"):
