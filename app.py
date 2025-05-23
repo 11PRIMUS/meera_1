@@ -5,13 +5,11 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage
 import streamlit as st
-from dotenv import load_dotenv
 
 
-load_dotenv()
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
-langchain_api_key_from_env = os.getenv("LANGCHAIN_API_KEY")
+langchain_api_key_from_env=st.secrets.get("LANGCHAIN_API_KEY")
 if langchain_api_key_from_env:
     os.environ["LANGCHAIN_API_KEY"] = langchain_api_key_from_env
 else:
@@ -33,7 +31,7 @@ prompt = ChatPromptTemplate.from_messages([
 st.title('EMO with custom model ') 
 
 llm=None 
-NEBIUS_API_KEY=os.getenv("NEBIUS_API_KEY")
+NEBIUS_API_KEY=st.secrets.get("NEBIUS_API_KEY")
 NEBIUS_BASE_URL="https://api.studio.nebius.com/v1/" 
 NEBIUS_MODEL_NAME="meta-llama/Llama-3.2-3B-Instruct-LoRa:emo-Pfnh" 
 
