@@ -110,7 +110,7 @@ st.title(f'EMO with custom model (User: {username})')
 llm=None 
 NEBIUS_API_KEY=st.secrets.get("NEBIUS_API_KEY")
 NEBIUS_BASE_URL="https://api.studio.nebius.com/v1/" 
-NEBIUS_MODEL_NAME="meta-llama/Llama-3.3-70B-Instruct-LoRa:meera2-PJwE" 
+NEBIUS_MODEL_NAME="Qwen/Qwen3-4B-fast-LoRa:meera4b-WqNr" 
 
 missing_configs = []
 if not NEBIUS_API_KEY:
