@@ -15,6 +15,9 @@ import datetime
 import requests
 import base64
 import streamlit.components.v1 as components
+import io
+import soundfile as sf
+from veena_tts import generate_speech
 
 DB_NAME="meera_chat.db"
 
@@ -155,19 +158,14 @@ for msg_idx, msg in enumerate(st.session_state.get(MESSAGES_DISPLAY_KEY, [])):
 if "speak_text" in st.session_state:
     text_to_speak = st.session_state.pop("speak_text")
     try:
-        tts_response = requests.post("http://localhost:8001/tts", json={"text": text_to_speak})
-        tts_response.raise_for_status()
-        audio_bytes = tts_response.content
-        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-        audio_html = f"""
-        <audio autoplay controls>
-            <source src="data:audio/wav;base64,{audio_b64}" type="audio/wav">
-            browser does not support the audio element.
-        </audio>
-        """
-        components.html(audio_html, height=70)
+        #veena voice
+        audio = generate_speech(text_to_speak, speaker="kavya") 
+        #buffer write
+        buf = io.BytesIO()
+        sf.write(buf, audio, 24000, format="WAV")
+        st.audio(buf.getvalue(), format="audio/wav")
     except Exception as e:
-        st.error(f"Error fetching audio from TTS service: {e}")
+        st.error(f"Error generating audio: {e}")
 
 if new_user_input := st.chat_input(f"Tell Meera about your day, {name}..."):
     st.session_state[MESSAGES_DISPLAY_KEY].append({"role":"user","content":new_user_input})
