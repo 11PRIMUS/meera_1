@@ -41,7 +41,7 @@ def load_user_data(username: str) -> tuple[list, ChatMessageHistory]:
     chat_history_store = ChatMessageHistory()
     conn=sqlite3.connect(DB_NAME)
     cursor=conn.cursor()
-    cursor.execute("select msg_tye,content from chat_msg where username=? order by timestamp asc",(username,))
+    cursor.execute("SELECT message_type, content FROM chat_messages WHERE username=? ORDER BY timestamp ASC", (username,))
     for row in cursor.fetchall():
         msg_type, content = row
         role = "user" if msg_type == "human" else "assistant"
@@ -50,6 +50,7 @@ def load_user_data(username: str) -> tuple[list, ChatMessageHistory]:
             chat_history_store.add_user_message(content)
         elif msg_type == "ai":
             chat_history_store.add_ai_message(content)
+            
     conn.close()
     return messages_display, chat_history_store
 
@@ -63,40 +64,27 @@ def save_message_to_db(username: str, message_type: str, content: str):
     conn.commit()
     conn.close()
 
-config_file_path = Path(__file__).parent / "config.yaml"
-if not config_file_path.exists():
-    st.error("config.yaml not found")
-    st.stop()
-
-with open(config_file_path) as file:
-    config = yaml.load(file, Loader=SafeLoader)
-
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days'],
-    #config['preauthorized']
-)
+username="default_user"
+name="User"
 
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 langchain_api_key_from_env=st.secrets.get("LANGCHAIN_API_KEY")
 if langchain_api_key_from_env:
     os.environ["LANGCHAIN_API_KEY"] = langchain_api_key_from_env
 
-name, authentication_status, username = authenticator.login()
+#name, authentication_status, username = authenticator.login()
 
-if authentication_status == False:
-    st.error("Username/password is incorrect")
-    st.stop()
-elif authentication_status == None:
-    st.warning(" your username and password")
-    if not langchain_api_key_from_env:
-        st.sidebar.warning("LANGCHAIN_API_KEY not found")
-    st.stop()
+# if authentication_status == False:
+#     st.error("Username/password is incorrect")
+#     st.stop()
+# elif authentication_status == None:
+#     st.warning(" your username and password")
+#     if not langchain_api_key_from_env:
+#         st.sidebar.warning("LANGCHAIN_API_KEY not found")
+#     st.stop()
 
-st.sidebar.success(f"Welcome *{name}*")
-authenticator.logout("Logout", "sidebar")
+# st.sidebar.success(f"Welcome *{name}*")
+# authenticator.logout("Logout", "sidebar")
 
 if not langchain_api_key_from_env:
     st.sidebar.warning("tracing disabled")
@@ -120,7 +108,7 @@ st.title(f'EMO with custom model (User: {username})')
 llm=None
 NEBIUS_API_KEY=st.secrets.get("NEBIUS_API_KEY")
 NEBIUS_BASE_URL="https://api.studio.nebius.com/v1/"
-NEBIUS_MODEL_NAME=""
+NEBIUS_MODEL_NAME=st.secrets.get("NEBIUS_MODEL_NAME")
 
 missing_configs = []
 if not NEBIUS_API_KEY:
