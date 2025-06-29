@@ -13,6 +13,8 @@ model = AutoModelForCausalLM.from_pretrained(
     "maya-research/veena-tts",
     quantization_config=quantization_config,
     device_map="auto",
+    low_cpu_mem_usage=True,
+    llm_int8_enable_fp32_cpu_offload=True,
     trust_remote_code=True,
 )
 tokenizer = AutoTokenizer.from_pretrained("maya-research/veena-tts", trust_remote_code=True)
