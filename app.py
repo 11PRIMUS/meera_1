@@ -98,7 +98,7 @@ if CHAT_HISTORY_STORE_KEY not in st.session_state or MESSAGES_DISPLAY_KEY not in
     st.session_state[CHAT_HISTORY_STORE_KEY] = chat_history_store_loaded
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are Meera, an emotional assistant. You reflect on your conversations and keep a sort of internal diary to help you remember and understand the user better over time. Respond to user queries, drawing upon your understanding from past interactions and your internal reflections."),
+    ("system", "You are Meera, an emotional assistant. Give direct, helpful responses without explanations of your reasoning process. Be conversational and supportive."),
     MessagesPlaceholder(variable_name="chat_history"),
     ("user", "{question}")
 ])
@@ -125,7 +125,9 @@ else:
         llm = ChatOpenAI(
                 model=NEBIUS_MODEL_NAME,
                 api_key=NEBIUS_API_KEY,
-                base_url=NEBIUS_BASE_URL
+                base_url=NEBIUS_BASE_URL,
+                max_tokens=50,  
+                temperature=0.3  
             )
     except Exception as e:
         st.error(f"failed to init model with Nebius: {e}")
