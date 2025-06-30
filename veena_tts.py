@@ -75,8 +75,10 @@ def decode_snac_tokens(snac_tokens):
         codes_lvl[2].append(snac_tokens[i+5] - llm_codebook_offsets[5])
         codes_lvl[2].append(snac_tokens[i+6] - llm_codebook_offsets[6])
     hierarchical_codes = []
+
+    device ='cuda' if torch.cuda.is_available() else 'cpu'
     for lvl_codes in codes_lvl:
-        tensor = torch.tensor(lvl_codes, dtype=torch.int32, device=snac_model.device).unsqueeze(0)
+        tensor = torch.tensor(lvl_codes, dtype=torch.int32, device=device).unsqueeze(0)
         if torch.any((tensor < 0) | (tensor > 4095)):
             raise ValueError("Invalid SNAC token values")
         hierarchical_codes.append(tensor)
