@@ -7,7 +7,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage
 import streamlit as st
-import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
 import sqlite3
@@ -104,6 +103,21 @@ prompt = ChatPromptTemplate.from_messages([
 ])
 
 st.title(f'EMO with custom model (User: {username})')
+
+with st.sidebar:
+    if st.button("new chat", help="start sharing more to meera"):
+        if CHAT_HISTORY_STORE_KEY in st.session_state:
+            del st.session_state[CHAT_HISTORY_STORE_KEY]
+        if MESSAGES_DISPLAY_KEY in st.session_state:
+            del st.session_state[MESSAGES_DISPLAY_KEY]
+        st.session_state[MESSAGES_DISPLAY_KEY] = []
+        st.session_state[CHAT_HISTORY_STORE_KEY] = ChatMessageHistory()
+        st.success("new chat")
+        st.rerun()
+
+    if MESSAGES_DISPLAY_KEY in st.session_state:
+        message_count = len(st.session_state[MESSAGES_DISPLAY_KEY])
+        st.info(f"messages in current chat: {message_count}")
 
 llm=None
 NEBIUS_API_KEY=st.secrets.get("NEBIUS_API_KEY")
