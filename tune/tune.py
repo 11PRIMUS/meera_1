@@ -1,24 +1,26 @@
 import os
+from dotenv import load_dotenv
 from openai import OpenAI
 from pathlib import Path
 from typing import Optional
 import time
 
-NEBUIS_BASE_URL=""
-TRAINING_FILE=Path("tune/meera(10004),jsonl")
+NEBUIS_BASE_URL="https://api.tokenfactory.nebius.com/v1/"
+TRAINING_FILE=Path("meera(10004).jsonl")
 
-#no validation
-VALIDATION_FILE:Optional[Path] = None
+#added validation
+VALIDATION_FILE=Path("meeravval.jsonl")
 
-MODEL_NAME=""
-SUFFIX=""
+MODEL_NAME="Qwen/Qwen3-32B"
+SUFFIX="meeraadapter"
 POLL_INTERVAL_SECONDS=15
 CHECKPOINT_DIR = Path("checkpoints")
 
+load_dotenv()
 def get_client()->OpenAI:
     api_key=os.environ.get("NEBUIS_API_KEY")
     if not api_key:
-        raise RuntimeError("check NEBUIS api key")
+        raise RuntimeError("check nebuis api key")
     return OpenAI(base_url=NEBUIS_BASE_URL, api_key=api_key)
 
 def upload_dataset(client:OpenAI, path :Path)->str:
