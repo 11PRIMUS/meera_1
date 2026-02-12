@@ -1,0 +1,24 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/venv/bin:${PATH}"
+
+# Install system deps (if needed later) and create venv
+RUN python -m venv /app/venv
+
+# Install Python dependencies
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /app/backend/requirements.txt
+
+# Copy backend source
+COPY backend/src /app/backend/src
+WORKDIR /app/backend
+ENV PYTHONPATH=/app/backend/src
+
+EXPOSE 8080
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
