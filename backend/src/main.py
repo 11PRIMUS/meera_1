@@ -148,4 +148,19 @@ def upsert_diary_entry(user_id:str, entry_date:date)-> DiaryEntry | None:
     
     return diary_entry(payload)
 
-    
+@app.post("/api/chat", response_model=ChatResponse)
+def create_msg(payload: ChatRequest) -> ChatResponse:
+    user_message = store_msg(
+        {"user_id": payload.user_id, "role": "user", "content": payload.message}
+    )
+
+    history_for_model = get_history(payload.user_id)
+    reply_text = meera_reply(history_for_model)
+    assistant_message = store_msg(
+        {"user_id": payload.user_id, "role": "assistant", "content": reply_text}
+    )
+
+    history = history_for_model + [assistant_message]
+    diary_entry = upsert_diary_entry(payload.user_id, datetime.now(timezone.utc).date())
+
+    return ChatResponse(reply=reply_text, diary_entry=diary_entry, history=history)
