@@ -4,7 +4,7 @@ import "./App.css";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const supabaseClient =
   supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
@@ -19,7 +19,7 @@ export default function App() {
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [activeDiaryIndex, setActiveDiaryIndex] = useState(0);
 
-  const isEnvReady = Boolean(supabaseClient);
+  const isEnvReady = Boolean(supabaseClient && apiBaseUrl);
   const statusLabel = session ? "Online" : "Offline";
   const userId = session?.user?.id;
 
@@ -31,6 +31,7 @@ export default function App() {
   const loadHistory = useCallback(
     async (uid) => {
       try {
+        if (!apiBaseUrl) throw new Error("API endpoint not configured.");
         const response = await fetch(`${apiBaseUrl}/api/chat/history/${uid}`);
         if (!response.ok) throw new Error("Unable to fetch chat history.");
         const data = await response.json();
@@ -39,12 +40,13 @@ export default function App() {
         handleError(err);
       }
     },
-    [handleError]
+    [apiBaseUrl, handleError]
   );
 
   const loadDiary = useCallback(
     async (uid) => {
       try {
+        if (!apiBaseUrl) throw new Error("API endpoint not configured.");
         const response = await fetch(`${apiBaseUrl}/api/diary/${uid}`);
         if (!response.ok) throw new Error("Unable to fetch diary.");
         const data = await response.json();
@@ -53,7 +55,7 @@ export default function App() {
         handleError(err);
       }
     },
-    [handleError]
+    [apiBaseUrl, handleError]
   );
 
   const refreshUserData = useCallback(
@@ -62,7 +64,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!supabaseClient) return;
+    if (!supabaseClient || !apiBaseUrl) return;
 
     supabaseClient.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -87,7 +89,7 @@ export default function App() {
     return () => {
       data?.subscription?.unsubscribe();
     };
-  }, [refreshUserData, supabaseClient]);
+  }, [apiBaseUrl, refreshUserData, supabaseClient]);
 
   useEffect(() => {
     setActiveDiaryIndex(0);
@@ -127,6 +129,7 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
+      if (!apiBaseUrl) throw new Error("API endpoint not configured.");
       const response = await fetch(`${apiBaseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
