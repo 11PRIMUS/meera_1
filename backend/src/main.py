@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List
 import httpx
+from openai import OpenAIError
 
 
 settings=get_settings()
@@ -85,3 +86,23 @@ def fetch_msgdate(user_id:str, target_date:date, limit:int=500)->List[ChatMessag
         if message.created_at and message.created_at.date() == target_date:
             day_messages.append(message)
     return list(reversed(day_messages))  
+
+def format_his(history: List[ChatMessage]) ->List[Dict[str, str]]:
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content":settings.assistant_system_prompt}
+    ]
+    messages.extend({"role":item.role,"content": item.content} for item in history)
+    return messages
+
+#build meera reply
+def meera_reply(history: List[ChatMessage]) -> str:
+    messages = format_his(history)
+    try:
+        return nebius_client.generate_reply(messages)
+    except OpenAIError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Assistant failed to generate a reply: {exc}"
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
