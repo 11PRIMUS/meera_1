@@ -106,3 +106,46 @@ def meera_reply(history: List[ChatMessage]) -> str:
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+def diary_payload(user_id: str, entry_date: date, history: List[ChatMessage]) -> Dict[str, Any]:
+    total_messages =len(history)
+    user_messages =[msg.content.strip() for msg in history if msg.role == "user" and msg.content.strip()]
+    assistant_messages = [
+        msg.content.strip() for msg in history if msg.role == "assistant" and msg.content.strip()
+    ]
+
+    def snippet(text: str) -> str:
+        text = text.replace("\n", " ").strip()
+        return text if len(text) <= 160 else f"{text[:157]}..."
+
+    opening =snippet(user_messages[0]) if user_messages else "We shared some quiet time together."
+    closing =snippet(user_messages[-1]) if len(user_messages) > 1 else opening
+    assistant_close = (
+        snippet(assistant_messages[-1]) if assistant_messages else "I offered a calm check-in before night."
+    )
+
+    title = f"Meera's log · {entry_date.strftime('%B %d, %Y')}"
+    content = (
+        f"{entry_date.strftime('%A, %B %d')}\n"
+        f"We traded {total_messages} gentle notes ({len(user_messages)} from you, {len(assistant_messages)} from me). "
+        f"You opened with “{opening}” and later returned to “{closing}”. "
+        f"I wrapped the day reminding us that “{assistant_close}”. "
+        "That's the daylog by meera." )
+    return {"user_id":user_id, "title":title, "content":content}
+
+def upsert_diary_entry(user_id:str, entry_date:date)-> DiaryEntry | None:
+    day_history =fetch_msgdate(user_id, entry_date)
+    if not day_history:
+        return None
+
+    payload=diary_payload(user_id, entry_date, day_history)
+    existing_entry=find_entry(user_id, entry_date)
+    if existing_entry and existing_entry.id:
+        updated=supabase.update(
+            settings.diary_table, filter={"id": existing_entry.id},
+            payload=payload
+        )
+        return DiaryEntry(**updated)
+    
+    return diary_entry(payload)
+
+    
