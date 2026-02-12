@@ -77,6 +77,6 @@ class SupabaseClient:
 
 
 @lru_cache
-def get_client() -> SupabaseClient:
+def supabase_client() -> SupabaseClient:
     settings = get_settings()
     return SupabaseClient(settings)
