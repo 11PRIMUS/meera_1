@@ -33,7 +33,7 @@ class Settings(BaseModel):
     assistant_system_prompt: str = DEFAULT_ASSISTANT_PROMPT
 
 
-def web_origin() -> List[str]:
+def web_origins() -> List[str]:
     env_value=os.getenv("ALLOWED_ORIGINS")
     if not env_value:
         return DEFAULT_ALLOWED_ORIGINS
@@ -53,7 +53,7 @@ def get_settings() -> Settings:
     if not nebius_api_key:
         raise RuntimeError("NEBIUS_API_KEY must be set in the environment.")
 
-    allowed_origins = web_origin()
+    allowed_origins = web_origins()
 
     return Settings(
         supabase_url=supabase_url,

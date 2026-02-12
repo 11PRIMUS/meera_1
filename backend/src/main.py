@@ -1,18 +1,17 @@
 from .config import get_settings
 from .nebuis_c import nebius_client
+from .schemas import ChatMessage, ChatRequest, ChatResponse, DiaryEntry, DiaryResponse
 from .supabase_c import supabase_client
-from .schemas import ChatMessage, DiaryResponse, DiaryEntry, ChatRequest, ChatResponse
+from datetime import date, datetime, timezone
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-
-from datetime import date, datetime, timezone
+from openai import OpenAIError
 from typing import Any, Dict, List
 import httpx
-from openai import OpenAIError
 
 
-settings=get_settings()
-supabase=supabase_client()
+settings = get_settings()
+supabase = supabase_client()
 nebuis = nebius_client()
 
 app=FastAPI(title="meera 3", version="0.3.0")
@@ -98,7 +97,7 @@ def format_his(history: List[ChatMessage]) ->List[Dict[str, str]]:
 def meera_reply(history: List[ChatMessage]) -> str:
     messages = format_his(history)
     try:
-        return nebius_client.generate_reply(messages)
+        return nebuis.meera_reply(messages)
     except OpenAIError as exc:
         raise HTTPException(
             status_code=502, detail=f"Assistant failed to generate a reply: {exc}"
