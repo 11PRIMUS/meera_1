@@ -6,10 +6,9 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/venv/bin:${PATH}"
 
-# Install system deps (if needed later) and create venv
 RUN python -m venv /app/venv
 
-# Install Python dependencies
+#python dependecies
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r /app/backend/requirements.txt
@@ -17,7 +16,6 @@ RUN pip install --upgrade pip && \
 # Copy backend source
 COPY backend/src /app/backend/src
 WORKDIR /app/backend
-ENV PYTHONPATH=/app/backend/src
 
 EXPOSE 8080
 
