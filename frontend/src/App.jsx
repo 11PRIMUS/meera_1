@@ -113,7 +113,10 @@ export default function App() {
     setError("");
     await supabaseClient.auth.signInWithOAuth({
       provider: "google",
-      options: { queryParams: { prompt: "consent" } },
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: { prompt: "consent" }
+      },
     });
   };
 

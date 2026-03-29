@@ -6,11 +6,10 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 load_dotenv()
-DEFAULT_ALLOWED_ORIGINS = [
+ALLOWED_ORIGINS = [
+    "https://www.meera.social",
+    "https://meera.social",
     "http://localhost:5173",
-    "http://localhost:5500",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5500",
 ]
 DEFAULT_NEBIUS_BASE_URL="https://api.tokenfactory.nebius.com/v1/"
 DEFAULT_NEBIUS_MODEL ="openai/gpt-oss-120b"
@@ -26,7 +25,7 @@ class Settings(BaseModel):
     supabase_anon_key: str | None = None
     diary_table: str = "diary_entries"
     messages_table: str = "messages"
-    allowed_origins: List[str] = DEFAULT_ALLOWED_ORIGINS
+    allowed_origins: List[str] = ALLOWED_ORIGINS
     nebius_api_key: str
     nebius_base_url: str = DEFAULT_NEBIUS_BASE_URL
     nebius_model: str = DEFAULT_NEBIUS_MODEL
@@ -36,7 +35,7 @@ class Settings(BaseModel):
 def web_origins() -> List[str]:
     env_value=os.getenv("ALLOWED_ORIGINS")
     if not env_value:
-        return DEFAULT_ALLOWED_ORIGINS
+        return ALLOWED_ORIGINS
     return [origin.strip() for origin in env_value.split(",") if origin.strip()]
 
 
