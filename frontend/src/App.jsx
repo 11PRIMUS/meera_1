@@ -6,8 +6,17 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-const supabaseClient =
-  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const supabaseClient =supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey, {auth: 
+      {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+          storageKey: 'sb-auth-token',
+          flowType: 'pkce'
+        }
+      })
+    : null;
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -18,6 +27,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [activeDiaryIndex, setActiveDiaryIndex] = useState(0);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const isEnvReady = Boolean(supabaseClient && apiBaseUrl);
   const statusLabel = session ? "Online" : "Offline";
@@ -66,18 +76,85 @@ export default function App() {
   useEffect(() => {
     if (!supabaseClient || !apiBaseUrl) return;
 
-    supabaseClient.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user?.id) {
-        refreshUserData(data.session.user.id);
-      }
-    });
+    let isMounted =true;
+    // session callback
+    const initAuth = async () => {
+      try {
+        const hashParams =new URLSearchParams(window.location.hash.substring(1));
+        const accessToken= hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const hasOAuthParams = accessToken || hashParams.has('error');
+        
+        if (hasOAuthParams) {
+          
+          if (accessToken && refreshToken) {
+            const { data: sessionData, error: sessionError } = await supabaseClient.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (sessionError) {
+              console.error('Error setting session:', sessionError);
+              setError(sessionError.message);
+              setAuthLoading(false);
+              return;
+            }
+            
+            if (sessionData.session && isMounted) {
+              console.log('Session set successfully:',sessionData.session.user.email);
+              setSession(sessionData.session);
+              refreshUserData(sessionData.session.user.id);
+              setAuthLoading(false);
+              // clean up URL
+              window.history.replaceState(null, '',window.location.pathname);
+              return;
+            }
+          }
+          
+          await new Promise(resolve =>setTimeout(resolve, 200));
+        }
 
-    const { data } = supabaseClient.auth.onAuthStateChange((_event, newSession) => {
+        const { data, error } = await supabaseClient.auth.getSession();
+        
+        if (error) {
+          console.error("error getting session:", error);
+          setError(error.message);
+          setAuthLoading(false);
+          return;
+        }
+        
+        if (isMounted) {
+          setSession(data.session);
+          if (data.session?.user?.id) {
+            console.log('Session found, loading user data');
+            refreshUserData(data.session.user.id);
+          } else if (hasOAuthParams) {
+            setError('Authentication failed. Please try signing in again.');
+          }
+          setAuthLoading(false);
+        }
+      } catch (err) {
+        console.error("Session initialization error:", err);
+        setError(err.message || 'Failed to initialize authentication');
+        setAuthLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const { data } = supabaseClient.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.email || 'no user');
+      if (!isMounted) return;
+
       setSession(newSession);
       setError("");
+      setAuthLoading(false);
+      
       if (newSession?.user?.id) {
         refreshUserData(newSession.user.id);
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       } else {
         setMessages([]);
         setDiaryEntries([]);
@@ -87,6 +164,7 @@ export default function App() {
     });
 
     return () => {
+      isMounted = false;
       data?.subscription?.unsubscribe();
     };
   }, [apiBaseUrl, refreshUserData, supabaseClient]);
@@ -111,13 +189,25 @@ export default function App() {
   const handleLogin = async () => {
     if (!supabaseClient) return;
     setError("");
-    await supabaseClient.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-        queryParams: { prompt: "consent" }
-      },
-    });
+    try {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: { 
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        },
+      });
+      if (error) {
+        console.error("OAuth error:", error);
+        setError(error.message);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.message || "failed to sign in");
+    }
   };
 
   const handleSignOut = async () => {
@@ -223,7 +313,7 @@ export default function App() {
           </div>
         </section>
 
-        {!session && (
+        {!session && !authLoading && (
           <section className="auth-panel">
             <div className="auth-copy">
               <h2>Welcome back</h2>
@@ -233,6 +323,15 @@ export default function App() {
               Continue with Google
             </button>
             <p className="auth-subcopy">Secure Supabase Auth · Private to you</p>
+          </section>
+        )}
+
+        {authLoading && (
+          <section className="auth-panel">
+            <div className="auth-copy">
+              <h2>Authenticating...</h2>
+              <p>Please wait for sign in..</p>
+            </div>
           </section>
         )}
 
