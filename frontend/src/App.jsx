@@ -13,7 +13,6 @@ const supabaseClient =supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl,
           detectSessionInUrl: true,
           storage: typeof window !== 'undefined' ? window.localStorage : undefined,
           storageKey: 'sb-auth-token',
-          flowType: 'pkce'
         }
       })
     : null;
